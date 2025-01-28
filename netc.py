@@ -34,13 +34,17 @@ def get_filtered_config(session):
 
 
 if __name__ == "__main__":
+    host = "10.1.100.1"
+    port = 830
+    user = "netconf"
+    password = "netconf"
     # Configure application-level logging
     logging.basicConfig(level=logging.INFO)
 
     nconf = None
     try:
         logging.info("Connecting to the NETCONF server...")
-        nconf = iosxe_connect("10.1.100.1", 830, "netconf", "netconf")
+        nconf = iosxe_connect(host, port, user, password)
         print("[green]Connected successfully![/green]")
 
         print("[cyan]Server Capabilities:[/cyan]")

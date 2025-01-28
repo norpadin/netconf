@@ -7,8 +7,8 @@ import xml.dom.minidom
 if __name__ == '__main__':
     host = "10.1.100.1"
     port = 830
-    user = "restconf"
-    password = "restconf"
+    user = "netconf"
+    password = "netconf"
 
     m = manager.connect(
         host=host,
