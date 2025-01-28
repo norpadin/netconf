@@ -1,53 +1,62 @@
 import logging
 from ncclient import manager
 from rich import print
-from lxml import etree
+import xml.dom.minidom
 
-# Enable debug logging
-logging.basicConfig(level=logging.DEBUG)
+# Suppress ncclient debug logs
+logging.getLogger("ncclient").setLevel(logging.WARNING)
+
+
+def iosxe_connect(host, port, user, password):
+    """Establish a NETCONF connection to the Cisco IOS-XE device."""
+    return manager.connect(
+        host=host,
+        port=port,
+        username=user,
+        password=password,
+        device_params={'name': "iosxe"},
+        timeout=60,
+        hostkey_verify=False,
+        look_for_keys=False
+    )
+
+
+def get_filtered_config(session):
+    """Retrieve a filtered running-config from the device."""
+    filter = """
+    <filter>
+        <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+            <interface/>
+        </native>
+    </filter>
+    """
+    return session.get_config("running", filter)
+
 
 if __name__ == "__main__":
-    device = {
-        "host": "10.1.100.1",
-        "port": 830,
-        "username": "netconf",
-        "password": "netconf",
-        "hostkey_verify": False,
-    }
+    # Configure application-level logging
+    logging.basicConfig(level=logging.INFO)
 
+    nconf = None
     try:
-        nconf = manager.connect(**device, timeout=60)
-        if nconf:
-            print("[green]Connected successfully![/green]")
-            print("[cyan]Server Capabilities:[/cyan]")
-            print(list(nconf.server_capabilities))
+        logging.info("Connecting to the NETCONF server...")
+        nconf = iosxe_connect("10.1.100.1", 830, "netconf", "netconf")
+        print("[green]Connected successfully![/green]")
+
+        print("[cyan]Server Capabilities:[/cyan]")
+        print(list(nconf.server_capabilities))
+
+        # Get filtered configuration
+        print("[cyan]Filtered running-config:[/cyan]")
+        netconf_reply = get_filtered_config(nconf)
+        print(xml.dom.minidom.parseString(netconf_reply.xml).toprettyxml())
+
     except Exception as e:
-        print(f"[red]Error: {e}[/red]")
+        logging.error(f"Error: {e}")
 
-    # try:
-    #     with manager.connect(**device) as nconf:
-    #         print("[green]Connected successfully![/green]")
-    #         print("[cyan]Server Capabilities:[/cyan]")
-    #         nc_reply = nconf.get_config(source="running")
-    #         xml_data = etree.tostring(
-    #             nc_reply.data_ele,
-    #             pretty_print=True,
-    #         ).decode()
-    #         print(xml_data)
-    # except Exception as e:
-    #     print(f"[red]Error: {e}[/red]")
-
-    # try:
-    #     nconf = manager.connect(**device, timeout=60)
-    #     if nconf:
-    #         print("[green]Connected successfully![/green]")
-    #         print("[cyan]Server Capabilities:[/cyan]")
-    #         nc_reply = nconf.get_config(source="running")
-    #         xml_data = etree.tostring(
-    #             nc_reply.data_ele, pretty_print=True).decode()
-    #         with open("running.xml", "wt") as f:
-    #             f.write(xml_data)
-    #     else:
-    #         print("[red]Failed to connect to the device.[/red]")
-    # except Exception as e:
-    #     print(f"[red]Error: {e}[/red]")
+    finally:
+        # Ensure session is closed
+        if nconf:
+            logging.info("Closing the NETCONF session...")
+            nconf.close_session()
+            print("[green]Session closed.[/green]")
